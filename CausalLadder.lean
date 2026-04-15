@@ -5,6 +5,8 @@ import CausalLadder.Characterization
 import CausalLadder.BridgeTheorem
 import CausalLadder.Necessity
 import CausalLadder.BridgeCorollary
+import CausalLadder.BridgeCorollaryEntry
+import CausalLadder.BridgeCorollaryStrictWeakness
 import CausalLadder.Rung3
 import CausalLadder.VectorJacobian
 import CausalLadder.ElasticityGap
