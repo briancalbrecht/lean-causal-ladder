@@ -11,6 +11,7 @@ import CausalLadder.Rung3
 import CausalLadder.VectorJacobian
 import CausalLadder.ElasticityGap
 import CausalLadder.NestedLogit
+import CausalLadder.NestedLogitDerivative
 import CausalLadder.CrossPartial
 import CausalLadder.IndexStructure
 import CausalLadder.ReducedForm
