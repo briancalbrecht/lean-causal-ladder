@@ -3,22 +3,21 @@ import Mathlib.MeasureTheory.Measure.Support
 import CausalLadder.ConstantOnSupport
 
 /-!
-# Vector Analogue of Theorem 1(b) — Jacobian Invariance
+# ARCHIVED — Vector Analogue of Theorem 1(b) — Jacobian Invariance
 
-The scalar characterization (∂D/∂p constant in ξ ⟹ additive separability)
-generalizes to the multi-product case: the J×J price Jacobian must be
-invariant in δ.
+**Status: Legacy.** As of commit 928b96d (S2 vector merge, 2026-04-17),
+the vector version of Theorem 1 was merged into the main theorem
+statement in `paper/paper.tex`. The Appendix A subsection that this file
+formalized (formerly lines 617–646) no longer exists.
 
-## Mathematical content
+The content is superseded by:
+- `Characterization.lean`: `characterization_b_via_zero_gradient` and
+  `vector_additive_decomposition` (added in the same update).
 
-If `∂σⱼ/∂pₖ(δ, p, x)` equals its expectation over δ for every δ in the
-support, for all (j,k), then each entry is δ-independent. This is the
-constant-on-support lemma applied entry-by-entry.
+This file is retained for backward compatibility and as a record of the
+original entry-wise formalization. No other Lean modules import it.
 
-The additive decomposition then follows component-wise: each `σⱼ` decomposes
-as `fⱼ(p, x) + gⱼ(δ, x)`.
-
-**Source:** `paper/paper.tex` lines 617–646 (Appendix A).
+**Original source:** `paper/paper.tex` lines 617–646 (Appendix A, deleted).
 -/
 
 namespace CausalLadder.VectorJacobian

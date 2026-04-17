@@ -7,33 +7,49 @@ import CausalLadder.ConstantOnSupport
 
 ## Mathematical content
 
-**(a) Levels.** `m(p,x) = D(x,p,ξ̄)` for all `ξ̄` in the support iff
-`D(x,p,·)` is constant on the support for each `p`.
+As of commit 928b96d (S2 vector merge), Theorem 1 is stated for
+`D : X × P × Ξ → ℝ^J` with J × J price Jacobian. Prior versions used
+a scalar D.
 
-**(b) Marginal price effects.** `∂m/∂p = ∂D/∂p(x,p,ξ̄)` for all `ξ̄` iff
-`D` is additively separable: `D(x,p,ξ) = f(x,p) + g(x,ξ)`.
+**(a) Levels (trivial case).** `m(p,x) = D(x,p,ξ̄)` for all `ξ̄` in the
+support iff `D(x,p,·)` is constant on the support for each `p`.
 
-### Proof strategy
+**(b) Marginal price effects (vector).** The population-average Jacobian
+`J̄_p(p,x) = J_p(x,p,ξ̄)` for all `ξ̄` and all `p` iff `D` is
+additively separable: `D(x,p,ξ) = f(x,p) + g(x,ξ)` (vector-valued
+`f`, `g`).
 
-Part (a): The hypothesis says E[h(ξ)] = h(ξ̄) for every ξ̄ in the support,
-where h(ξ) = D(x,p,ξ). By the constant-on-support lemma, h is constant.
+### Proof strategy (post S2 merge — zero-gradient construction)
 
-Part (b) forward: Apply (a) to h(ξ) = ∂D/∂p(x,p,ξ), concluding the
-derivative is ξ-free. Then integrate over p (FTC on a connected domain)
-to recover the additive decomposition.
+Part (a): unchanged (constant-on-support lemma).
 
-Part (b) backward: If D = f + g, then ∂D/∂p = ∂f/∂p is ξ-free. Trivial.
+Part (b) forward:
+1. Apply (a) to each Jacobian entry `h_{jk}(ξ) = ∂D_j/∂p_k(x,p,ξ)`,
+   concluding each entry is ξ-free. (This is `slopes_forward_core`.)
+2. **Zero-gradient construction** (new in S2 merge): Fix `ξ₀`, define
+   `f(x,p) = D(x,p,ξ₀) - D(x,p₀,ξ₀)`, `g(x,ξ) = D(x,p₀,ξ)`,
+   `H_ξ(p) = D(x,p,ξ) - f(x,p) - g(x,ξ)`. Then `∂H_ξ/∂p = 0`
+   (Jacobian invariance) and `H_ξ(p₀) = 0`. On connected `P`,
+   `H_ξ ≡ 0`, so `D = f + g`.
+3. In Lean, step 2 is encoded via `characterization_b_via_zero_gradient`,
+   which takes the zero-gradient conclusion as a hypothesis
+   (connectedness + zero gradient ⟹ constant is a calculus fact not
+   re-derived here).
 
-**Source:** `paper/paper.tex` lines 242–265.
+Part (b) backward: If D = f + g, then J_p = ∂f/∂p' doesn't depend on ξ.
+
+**Source:** `paper/paper.tex` lines 253–278.
 
 ### Lean encoding
 
-Part (a) is directly formalized using `ConstantOnSupport`.
-Part (b) forward requires the fundamental theorem of calculus, which we
-encode at a higher level: we assume the derivative is ξ-independent and
-state the additive decomposition as the conclusion. The FTC step is
-encapsulated as a hypothesis (that integration recovers the function).
-Part (b) backward is trivial.
+- Part (a): directly formalized using `ConstantOnSupport`.
+- Part (b) core step: `slopes_forward_core` (applies to each entry).
+- Part (b) decomposition: `additive_decomposition` (scalar, from h_indep).
+- Part (b) zero-gradient bridge: `characterization_b_via_zero_gradient`
+  (takes the zero-gradient conclusion as hypothesis, bridges to
+  `additive_decomposition`). Depth: **logic only** on the connectedness
+  step.
+- Vector wrapper: `vector_additive_decomposition` (applies component-wise).
 -/
 
 namespace CausalLadder.Characterization
@@ -169,5 +185,59 @@ theorem additive_decomposition
   refine ⟨fun p => D p ξ₀ - D p₀ ξ₀, fun ξ => D p₀ ξ, fun p ξ => ?_⟩
   have := h_indep p ξ ξ₀
   linarith
+
+/-- **Theorem 1(b) via zero-gradient construction (post S2 merge).**
+
+The paper's forward proof (commit 928b96d) defines `H_ξ(p) = D(p,ξ) -
+D(p,ξ₀) + D(p₀,ξ₀) - D(p₀,ξ)`. Since each Jacobian entry is ξ-free
+(by `slopes_forward_core`), `∂H_ξ/∂p = 0`. On a connected domain with
+`H_ξ(p₀) = 0`, `H_ξ ≡ 0`. This gives:
+
+  `D(p,ξ₁) - D(p,ξ₂) = D(p₀,ξ₁) - D(p₀,ξ₂)` for all p, ξ₁, ξ₂.
+
+We take this as hypothesis `h_grad_zero`, encoding the connectedness +
+zero-gradient ⟹ constant step. The theorem then bridges to
+`additive_decomposition`. Each step is entry-wise, so this works for
+each component `D_j` of a vector-valued demand.
+
+**Depth: logic only** on the zero-gradient step (the calculus fact
+"zero gradient + connected ⟹ constant" is taken as a hypothesis, not
+derived from mathlib). The algebraic bridge and decomposition are
+**fully verified**.
+
+Source: `paper/paper.tex` lines 271–276. -/
+theorem characterization_b_via_zero_gradient
+    {Ξ P : Type*} [Nonempty Ξ]
+    (D : P → Ξ → ℝ) (p₀ : P)
+    -- The zero-gradient conclusion: D(p,ξ₁) - D(p,ξ₂) is constant in p.
+    -- Follows from: ∂/∂p[D(p,ξ₁) - D(p,ξ₂)] = 0 (Jacobian invariance)
+    -- + connectedness of P + value at p₀ pins down the constant.
+    (h_grad_zero : ∀ p ξ₁ ξ₂,
+      D p ξ₁ - D p ξ₂ = D p₀ ξ₁ - D p₀ ξ₂) :
+    ∃ (f : P → ℝ) (g : Ξ → ℝ), ∀ p ξ, D p ξ = f p + g ξ := by
+  -- Rearrange h_grad_zero into the h_indep form for additive_decomposition.
+  have h_indep : ∀ p ξ₁ ξ₂,
+      D p ξ₁ - D p₀ ξ₁ = D p ξ₂ - D p₀ ξ₂ := by
+    intro p ξ₁ ξ₂; linarith [h_grad_zero p ξ₁ ξ₂]
+  exact additive_decomposition D p₀ h_indep
+
+/-- **Vector additive decomposition.**
+
+For vector-valued `D : P → Ξ → (Fin J → ℝ)`, if each component satisfies
+the zero-gradient hypothesis, then each component decomposes additively.
+
+This is `characterization_b_via_zero_gradient` applied J times.
+
+Source: `paper/paper.tex` lines 253–276 (Theorem 1 is now vector-valued). -/
+theorem vector_additive_decomposition
+    {Ξ P : Type*} [Nonempty Ξ] {J : ℕ}
+    (D : P → Ξ → Fin J → ℝ) (p₀ : P)
+    -- Each component satisfies the zero-gradient hypothesis
+    (h_grad_zero : ∀ (j : Fin J) p ξ₁ ξ₂,
+      D p ξ₁ j - D p ξ₂ j = D p₀ ξ₁ j - D p₀ ξ₂ j) :
+    ∀ (j : Fin J), ∃ (f : P → ℝ) (g : Ξ → ℝ),
+      ∀ p ξ, D p ξ j = f p + g ξ :=
+  fun j => characterization_b_via_zero_gradient
+    (fun p ξ => D p ξ j) p₀ (h_grad_zero j)
 
 end CausalLadder.Characterization
